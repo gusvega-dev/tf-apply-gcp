@@ -1,0 +1,24 @@
+name: "Terraform Apply for GCP"
+description: "GitHub Action to apply Terraform configurations on GCP with subscription verification"
+author: "Your Name"
+branding:
+  icon: "cloud"
+  color: "blue"
+
+inputs:
+  gcp_credentials_json:
+    description: "GCP Service Account JSON"
+    required: true
+  project_id:
+    description: "GCP Project ID"
+    required: true
+  environment:
+    description: "Deployment environment (DEV, QA, PROD)"
+    required: true
+  subscription_key:
+    description: "API Key to verify user subscription"
+    required: true
+
+runs:
+  using: "node16"
+  main: "index.js"
