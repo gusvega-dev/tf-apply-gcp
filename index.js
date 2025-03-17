@@ -69,22 +69,22 @@ function setupGcpCredentials() {
  */
 async function runTerraform() {
     console.log("🏗 Running Terraform Init...");
-    await exec.exec('terraform init -input=false', [], { silent: true }); // Show output for debugging
+    await exec.exec('terraform init -input=false', [], { silent: false });
 
     console.log("📊 Running Terraform Apply...");
     try {
-        await exec.exec('terraform apply -auto-approve', [], { silent: false }); // Show output
+        await exec.exec('terraform apply -auto-approve', [], { silent: false }); // Executes apply
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
         return;
     }
 
-    // Generate JSON output
-    console.log("📝 Converting Terraform apply to JSON...");
+    // Generate JSON output of the applied state
+    console.log("📝 Extracting Applied Changes...");
     const jsonOutputPath = "/github/workspace/tfapply.json";
 
     try {
-        const jsonOutput = execSync('terraform show -json', { encoding: 'utf8' }); // Capture JSON output
+        const jsonOutput = execSync('terraform show -json', { encoding: 'utf8' });
         fs.writeFileSync(jsonOutputPath, jsonOutput);
     } catch (error) {
         core.setFailed(`❌ Failed to generate Terraform JSON output: ${error.message}`);
@@ -94,11 +94,11 @@ async function runTerraform() {
     // Read and parse the JSON output
     if (fs.existsSync(jsonOutputPath)) {
         const tfJson = JSON.parse(fs.readFileSync(jsonOutputPath, 'utf8'));
-    
-        // Extract all resource changes
+
+        // Extract resource changes
         const changes = tfJson.resource_changes || [];
         const changesCount = changes.length;
-    
+
         // Categorize resources by action type
         const changeCategories = {
             create: [],
@@ -118,47 +118,53 @@ async function runTerraform() {
                 })
                 .join("\n");
         }
-    
+
         changes.forEach(change => {
-            const address = change.address;
-            const actions = change.change.actions;
+            const address = change.address; // Full resource path
+            const actions = change.change.actions; // Array of actions (["create"], ["update"], ["delete"])
+
+            // Extract attributes and format them properly
             const attributes = change.change.after || {};
-            const formattedAttributes = formatAttributes(attributes, 8);
-    
+            const formattedAttributes = formatAttributes(attributes, 8); // Start indentation at 8 spaces
+
             actions.forEach(action => {
                 if (changeCategories[action]) {
                     changeCategories[action].push({ address, formattedAttributes });
                 }
             });
         });
-    
+
         const createCount = changeCategories.create.length;
         const updateCount = changeCategories.update.length;
         const deleteCount = changeCategories.delete.length;
-    
+
+        // Print summary
         console.log("🔄 Terraform Apply Changes:");
         console.log(`🔍 Found ${changesCount} resource changes.`);
-        console.log("");
+        console.log(" ");
         console.log(`CREATE: ${createCount} | UPDATE: ${updateCount} | DELETE: ${deleteCount}\n`);
-    
+
         const actionLabels = {
             create: "CREATE",
             update: "UPDATE",
             delete: "DELETE"
         };
-    
+
         ["create", "update", "delete"].forEach(action => {
             if (changeCategories[action].length > 0) {
                 console.log(`${actionLabels[action]}:`);
+
                 changeCategories[action].forEach(resource => {
+                    // ✅ Resource is collapsible in GitHub Actions logs
                     console.log(`::group::${resource.address}`);
                     console.log(resource.formattedAttributes);
                     console.log("::endgroup::");
                 });
-                console.log("");
+
+                console.log(""); // Add empty line for spacing
             }
         });
-    
+
         // Set GitHub Actions outputs
         core.setOutput("resources_changed", changesCount);
         core.setOutput("change_details", JSON.stringify(changeCategories));
@@ -169,6 +175,7 @@ async function runTerraform() {
 
     core.setOutput("apply_status", "success");
 }
+
 
 /**
  * Main execution function.
