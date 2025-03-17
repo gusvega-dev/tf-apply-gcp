@@ -18,7 +18,7 @@
 ### Basic Example
 ```yaml
 - name: Run Terraform Apply
-  uses: gusvega-dev/tf-apply-gcp@v1.0.1
+  uses: gusvega-dev/tf-apply-gcp@v1.0.0
   env:
     GOOGLE_APPLICATION_CREDENTIALS: "${{ secrets.GCP_CREDENTIALS }}"
   with:
@@ -43,7 +43,7 @@
 ### Example: Passing Multiple Secrets
 ```yaml
 - name: Run Terraform Apply
-  uses: gusvega-dev/tf-apply-gcp@v1.0.1
+  uses: gusvega-dev/tf-apply-gcp@v1.0.0
   env:
     GOOGLE_APPLICATION_CREDENTIALS: "${{ secrets.GCP_CREDENTIALS }}"
   with:
@@ -147,7 +147,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Terraform Apply
-        uses: gusvega-dev/tf-apply-gcp@v1.0.1
+        uses: gusvega-dev/tf-apply-gcp@v1.0.0
         with:
           workdir: "./terraform"
           secrets: '{"project_id":"${{ secrets.PROJECT_ID }}", "api_key":"${{ secrets.API_KEY }}"}'

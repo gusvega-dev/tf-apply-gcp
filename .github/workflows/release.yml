@@ -29,8 +29,12 @@ jobs:
           VERSION_ID=$(gh api \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/user/packages/container/tf-apply-gcp/versions \
-            | jq -r '.[] | select(.metadata.container.tags[] | contains("'$VERSION'")) | .id')
+            https://api.github.com/user/packages/container/tf-apply-gcp/versions 2>/dev/null | jq -r '
+            if type=="array" then 
+              .[] | select(.metadata.container.tags[]? | contains("'"$VERSION"'")) | .id 
+            else 
+              empty 
+            end')
 
           # Delete version if it exists
           if [ -n "$VERSION_ID" ]; then
@@ -39,7 +43,7 @@ jobs:
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               https://api.github.com/user/packages/container/tf-apply-gcp/versions/$VERSION_ID
           else
-            echo "✅ No existing version found for $VERSION"
+            echo "✅ No existing version found for $VERSION or package does not exist yet."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
