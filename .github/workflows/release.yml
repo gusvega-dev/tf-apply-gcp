@@ -42,7 +42,7 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/user/packages/container/tf-apply-gcp/versions 2>/dev/null | jq length)
 
-          # Delete version if it exists and is not the last one
+          # Check if the version exists before trying to delete
           if [ -n "$VERSION_ID" ]; then
             if [ "$VERSION_COUNT" -gt 1 ]; then
               echo "🗑️ Deleting old version $VERSION ($VERSION_ID)"
