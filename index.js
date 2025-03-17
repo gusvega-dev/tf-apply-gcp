@@ -71,15 +71,39 @@ async function runTerraform() {
     console.log("🏗 Running Terraform Init...");
     await exec.exec('terraform init -input=false', [], { silent: false });
 
+    // Check if a plan exists
+    const planExists = fs.existsSync("tfplan");
+
+    if (!planExists) {
+        console.log("🤔 Thinking... (Generating Terraform Plan)");
+        try {
+            await exec.exec('terraform plan -out=tfplan', [], { silent: true }); // Plan runs silently
+        } catch (error) {
+            core.setFailed(`❌ Terraform Plan failed: ${error.message}`);
+            return;
+        }
+        console.log("✅ Plan generated.");
+    }
+
+    console.log("📊 Showing Terraform Plan Before Apply...");
+    try {
+        const planOutput = execSync('terraform show tfplan', { encoding: 'utf8' });
+        console.log(planOutput); // Display changes before apply
+    } catch (error) {
+        core.setFailed(`❌ Failed to show Terraform plan: ${error.message}`);
+        return;
+    }
+
+    console.log("📢 **The above plan will be applied now...**");
+
     console.log("📊 Running Terraform Apply...");
     try {
-        await exec.exec('terraform apply -auto-approve', [], { silent: false }); // Executes apply
+        await exec.exec('terraform apply tfplan -auto-approve', [], { silent: false }); // Apply using the saved plan
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
         return;
     }
 
-    // Generate JSON output of the applied state
     console.log("📝 Extracting Applied Changes...");
     const jsonOutputPath = "/github/workspace/tfapply.json";
 
