@@ -65,23 +65,17 @@ function setupGcpCredentials() {
 }
 
 /**
- * Runs Terraform commands with suppressed output and extracts specific info from JSON.
+ * Runs Terraform Apply and extracts deployment changes.
  */
 async function runTerraform() {
     console.log("🏗 Running Terraform Init...");
-    await exec.exec('terraform init -input=false', [], { silent: false }); // Show output for debugging
+    await exec.exec('terraform init -input=false', [], { silent: true }); // Show output for debugging
 
     console.log("📊 Running Terraform Apply...");
     try {
-        await exec.exec('terraform apply -out=tfapply', [], { silent: false }); // Show output for debugging
+        await exec.exec('terraform apply -auto-approve', [], { silent: false }); // Show output
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
-        return;
-    }
-
-    // Check if tfapply file exists before running terraform show
-    if (!fs.existsSync("tfapply")) {
-        core.setFailed("❌ Terraform apply file 'tfapply' was not generated. Check for Terraform errors above.");
         return;
     }
 
@@ -90,8 +84,8 @@ async function runTerraform() {
     const jsonOutputPath = "/github/workspace/tfapply.json";
 
     try {
-        const jsonOutput = execSync('terraform show -json tfapply', { encoding: 'utf8' }); // Capture JSON output
-        fs.writeFileSync(jsonOutputPath, jsonOutput); // Write to file manually
+        const jsonOutput = execSync('terraform show -json', { encoding: 'utf8' }); // Capture JSON output
+        fs.writeFileSync(jsonOutputPath, jsonOutput);
     } catch (error) {
         core.setFailed(`❌ Failed to generate Terraform JSON output: ${error.message}`);
         return;
@@ -111,15 +105,12 @@ async function runTerraform() {
             update: [],
             delete: []
         };
-    
-        // Function to format attributes with proper indentation (recursive for nested attributes)
+
         function formatAttributes(attributes, indentLevel = 2) {
             return Object.entries(attributes)
                 .map(([key, value]) => {
-                    const indent = " ".repeat(indentLevel); // Create indentation
-                    
+                    const indent = " ".repeat(indentLevel);
                     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-                        // ✅ Expand nested attributes with additional indentation
                         return `${indent}- ${key}:\n` + formatAttributes(value, indentLevel + 2);
                     } else {
                         return `${indent}- ${key}: ${JSON.stringify(value)}`;
@@ -129,12 +120,10 @@ async function runTerraform() {
         }
     
         changes.forEach(change => {
-            const address = change.address; // Full resource path
-            const actions = change.change.actions; // Array of actions (["create"], ["update"], ["delete"])
-    
-            // Extract attributes and format them properly
+            const address = change.address;
+            const actions = change.change.actions;
             const attributes = change.change.after || {};
-            const formattedAttributes = formatAttributes(attributes, 8); // Start indentation at 8 spaces
+            const formattedAttributes = formatAttributes(attributes, 8);
     
             actions.forEach(action => {
                 if (changeCategories[action]) {
@@ -143,18 +132,15 @@ async function runTerraform() {
             });
         });
     
-        // ✅ Now, count the number of each type **after** populating the categories
         const createCount = changeCategories.create.length;
         const updateCount = changeCategories.update.length;
         const deleteCount = changeCategories.delete.length;
     
-        // Print summary
         console.log("🔄 Terraform Apply Changes:");
         console.log(`🔍 Found ${changesCount} resource changes.`);
-        console.log(" ");
+        console.log("");
         console.log(`CREATE: ${createCount} | UPDATE: ${updateCount} | DELETE: ${deleteCount}\n`);
     
-        // Define display order
         const actionLabels = {
             create: "CREATE",
             update: "UPDATE",
@@ -164,15 +150,12 @@ async function runTerraform() {
         ["create", "update", "delete"].forEach(action => {
             if (changeCategories[action].length > 0) {
                 console.log(`${actionLabels[action]}:`);
-    
                 changeCategories[action].forEach(resource => {
-                    // ✅ Resource is collapsible
                     console.log(`::group::${resource.address}`);
-                    console.log(resource.formattedAttributes); // Properly formatted key-value attributes
+                    console.log(resource.formattedAttributes);
                     console.log("::endgroup::");
                 });
-    
-                console.log(""); // Add empty line for spacing
+                console.log("");
             }
         });
     
