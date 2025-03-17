@@ -202,6 +202,7 @@ As part of a broader Terraform automation suite, additional actions will be deve
 - Terraform Lint & Format
 - Security Scan
 - Cost Estimation
+- [ Plan Validation ](https://github.com/marketplace/actions/terraform-plan-gcp-action)
 - Apply Execution
 - State Backup
 - Post-Deployment Tests
