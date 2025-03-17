@@ -1,0 +1,59 @@
+name: Publish Containerized GitHub Action to GHCR
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/gusvega-dev/tf-apply-gcp
+  VERSION: 'v1.0.0'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write  # Required for pushing to GHCR
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
+      - name: Delete Existing Version (if exists)
+        run: |
+          # Fetch existing version ID
+          VERSION_ID=$(gh api \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/user/packages/container/tf-apply-gcp/versions \
+            | jq -r '.[] | select(.metadata.container.tags[] | contains("'$VERSION'")) | .id')
+
+          # Delete version if it exists
+          if [ -n "$VERSION_ID" ]; then
+            echo "🗑️ Deleting old version $VERSION ($VERSION_ID)"
+            gh api --method DELETE \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/user/packages/container/tf-apply-gcp/versions/$VERSION_ID
+          else
+            echo "✅ No existing version found for $VERSION"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+      - name: Build and Tag Docker Image
+        run: |
+          docker build -t $IMAGE_NAME:$VERSION .
+
+      - name: Push Docker Image to GHCR
+        run: |
+          docker push $IMAGE_NAME:$VERSION
+
+      - name: Create and Push GitHub Tag
+        run: |
+          git tag -f $VERSION
+          git push origin -f $VERSION

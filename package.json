@@ -1,11 +1,10 @@
 {
-    "name": "tf-apply-gcp",
-    "version": "1.0.0",
-    "description": "GitHub Action to apply Terraform on GCP with subscription validation",
-    "main": "index.js",
-    "dependencies": {
-      "@actions/core": "^1.10.0",
-      "node-fetch": "^3.3.0"
-    }
+  "name": "tf-apply-gcp",
+  "version": "1.0.0",
+  "description": "GitHub Action for fast Terraform Apply execution",
+  "main": "index.js",
+  "dependencies": {
+    "@actions/core": "^1.10.0",
+    "@actions/exec": "^1.1.1"
   }
-  
+}
