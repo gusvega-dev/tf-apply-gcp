@@ -85,13 +85,13 @@ async function runTerraform() {
         return;
     }
 
-    // Generate JSON output
+    // Convert the Terraform plan to JSON for structured output
     console.log("📝 Converting Terraform plan to JSON...");
     const jsonOutputPath = "/github/workspace/tfplan.json";
 
     try {
-        const jsonOutput = execSync('terraform show -json tfplan', { encoding: 'utf8' }); // Capture JSON output
-        fs.writeFileSync(jsonOutputPath, jsonOutput); // Write to file manually
+        const jsonOutput = execSync('terraform show -json tfplan', { encoding: 'utf8' });
+        fs.writeFileSync(jsonOutputPath, jsonOutput);
     } catch (error) {
         core.setFailed(`❌ Failed to generate Terraform JSON output: ${error.message}`);
         return;
@@ -179,10 +179,14 @@ async function runTerraform() {
 
     console.log("📊 Running Terraform Apply...");
     try {
-        if (planExists) {
-            await exec.exec('terraform apply tfplan -no-color -auto-approve', [], { silent: false });
+        if (changesCount > 0) {
+            if (planExists) {
+                await exec.exec('terraform apply tfplan -no-color', [], { silent: false });
+            } else {
+                await exec.exec('terraform apply -auto-approve -no-color', [], { silent: false });
+            }
         } else {
-            await exec.exec('terraform apply -auto-approve -no-color', [], { silent: false });
+            console.log("✅ No changes detected. Skipping Terraform Apply.");
         }
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
@@ -192,6 +196,7 @@ async function runTerraform() {
     console.log("✅ Terraform Apply completed.");
     core.setOutput("apply_status", "success");
 }
+
 
 /**
  * Main execution function.
