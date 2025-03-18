@@ -85,6 +85,9 @@ async function runTerraform() {
         return;
     }
 
+    // Initialize changesCount before JSON parsing
+    let changesCount = 0;
+
     // Convert the Terraform plan to JSON for structured output
     console.log("📝 Converting Terraform plan to JSON...");
     const jsonOutputPath = "/github/workspace/tfplan.json";
