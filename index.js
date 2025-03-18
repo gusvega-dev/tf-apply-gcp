@@ -106,7 +106,7 @@ async function runTerraform() {
 
         // Extract all resource changes
         const changes = tfJson.resource_changes || [];
-        const changesCount = changes.length;
+        changesCount = changes.length; // Ensure changesCount is properly set
 
         // Categorize resources by action type
         const changeCategories = {
@@ -183,13 +183,10 @@ async function runTerraform() {
     console.log("📊 Running Terraform Apply...");
     try {
         if (changesCount > 0) {
-            if (planExists) {
-                await exec.exec('terraform apply tfplan -no-color', [], { silent: false });
-            } else {
-                await exec.exec('terraform apply -auto-approve -no-color', [], { silent: false });
-            }
+            console.log("🚀 Changes detected! Running Terraform Apply...");
+            await exec.exec('terraform apply tfplan -no-color', [], { silent: false });
         } else {
-            console.log("✅ No changes detected. Skipping Terraform Apply.");
+            console.log("✅ No changes detected. Terraform Apply is **NOT skipped**, but there's nothing to apply.");
         }
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
@@ -199,6 +196,7 @@ async function runTerraform() {
     console.log("✅ Terraform Apply completed.");
     core.setOutput("apply_status", "success");
 }
+
 
 
 /**
