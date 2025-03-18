@@ -25,36 +25,40 @@ jobs:
 
       - name: Delete Existing Version (if exists)
         run: |
-          # Fetch existing version ID
-          VERSION_ID=$(gh api \
+          echo "🔍 Fetching existing package versions..."
+
+          # Fetch package versions
+          VERSIONS_JSON=$(gh api \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/user/packages/container/tf-apply-gcp/versions 2>/dev/null | jq -r '
+            https://api.github.com/user/packages/container/tf-apply-gcp/versions 2>/dev/null)
+
+          # Count total versions
+          VERSION_COUNT=$(echo "$VERSIONS_JSON" | jq length)
+
+          # Find the version ID to delete
+          VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r '
             if type=="array" then 
               .[] | select(.metadata.container.tags[]? | contains("'"$VERSION"'")) | .id 
             else 
               empty 
             end')
 
-          # Count total versions
-          VERSION_COUNT=$(gh api \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/user/packages/container/tf-apply-gcp/versions 2>/dev/null | jq length)
-
-          # Check if the version exists before trying to delete
+          # If the version exists and is not the last one, delete it
           if [ -n "$VERSION_ID" ]; then
             if [ "$VERSION_COUNT" -gt 1 ]; then
               echo "🗑️ Deleting old version $VERSION ($VERSION_ID)"
               gh api --method DELETE \
                 -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                https://api.github.com/user/packages/container/tf-apply-gcp/versions/$VERSION_ID
+                https://api.github.com/user/packages/container/tf-apply-gcp/versions/$VERSION_ID || echo "⚠️ Warning: Failed to delete version but continuing..."
             else
               echo "⚠️ Cannot delete the last tagged version ($VERSION). Consider deleting the entire package instead."
             fi
           else
             echo "✅ No existing version found for $VERSION"
           fi
+
+          echo "🚀 Proceeding with the rest of the workflow..."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
