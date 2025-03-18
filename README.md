@@ -1,20 +1,22 @@
 # Terraform Apply GCP Action (`tf-apply-gcp`)
 
-`tf-apply-gcp` is a GitHub Action that runs `terraform apply` inside a containerized environment. It helps execute Terraform apply operations with structured and collapsible output formatting, ensuring seamless integration with Google Cloud workflows.
+`tf-apply-gcp` is a GitHub Action that runs `terraform apply` inside a containerized environment. It simplifies Terraform execution by securely handling credentials, secrets, and workspace setup while maintaining a clean and structured output.
 
 ---
 
 ## Features
-- Containerized Execution → Runs inside a prebuilt Docker container with Terraform installed.
-- Automatic Directory Handling → Works within your Terraform directory without manual setup.
-- Collapsible Terraform Output → Groups resource changes for better readability in GitHub logs.
-- Google Cloud Credentials & Secrets Handling → Reads authentication and Terraform secrets securely from GitHub Secrets.
-- Flexible Secret Passing → Pass multiple secrets as an object and access them dynamically in Terraform.
-- Works on Any GitHub Runner → No dependency issues—run Terraform anywhere.
+
+- **Containerized Execution** → Runs in a prebuilt Docker container with Terraform installed.
+- **Automatic Directory Handling** → Automatically switches to the specified Terraform directory.
+- **Collapsible Terraform Output** → Uses GitHub Actions' grouping to improve readability.
+- **Google Cloud Credentials & Secrets Handling** → Reads authentication and secrets from GitHub Secrets.
+- **Flexible Secret Passing** → Pass multiple secrets as JSON for use within Terraform.
+- **Works on Any GitHub Runner** → Runs seamlessly on all GitHub-hosted and self-hosted runners.
 
 ---
 
 ## Usage
+
 ### Basic Example
 ```yaml
 - name: Run Terraform Apply
@@ -27,18 +29,20 @@
 ```
 
 ### What This Does
+
 - Runs `terraform apply` inside the `./terraform` directory.
 - Uses Google Cloud credentials from GitHub Secrets.
-- Passes Terraform secrets dynamically as an object.
-- Displays structured Terraform logs inside GitHub Actions.
+- Passes Terraform secrets dynamically as a JSON object.
+- Displays structured Terraform logs in GitHub Actions.
 
 ---
 
 ## Inputs
-| Name       | Required | Default | Description |
-|------------|----------|---------|-------------|
-| `workdir`  | No       | `.`     | Working directory for Terraform execution. |
-| `secrets`  | No       | `{}`    | JSON object containing Terraform secrets. |
+
+| Name      | Required | Default | Description                             |
+|-----------|----------|---------|-----------------------------------------|
+| `workdir` | No       | `.`     | Directory containing Terraform files.   |
+| `secrets` | No       | `{}`    | JSON object containing Terraform secrets. |
 
 ### Example: Passing Multiple Secrets
 ```yaml
@@ -54,10 +58,10 @@
 ---
 
 ## Using Secrets in Terraform
-The secrets passed to the action are automatically available in Terraform as environment variables prefixed with `TF_VAR_` - for example :
+
+Secrets passed to the action are automatically available in Terraform as environment variables prefixed with `TF_VAR_`. Example:
 
 ### Defining Secrets in Terraform (`variables.tf`)
-Create a `variables.tf` file to define the secrets:
 ```hcl
 variable "secrets" {
   type = map(string)
@@ -65,7 +69,6 @@ variable "secrets" {
 ```
 
 ### Accessing Secrets in Terraform (`main.tf`)
-The secrets can be accessed in Terraform using:
 ```hcl
 provider "google" {
   project = var.secrets["project_id"]
@@ -76,8 +79,7 @@ resource "some_resource" "example" {
 }
 ```
 
-### Outputting Secrets in Terraform (`outputs.tf`)
-You can also output specific secrets for debugging purposes:
+### Outputting Secrets for Debugging (`outputs.tf`)
 ```hcl
 output "project_id" {
   value = var.secrets["project_id"]
@@ -85,30 +87,29 @@ output "project_id" {
 }
 ```
 
-This allows Terraform to use the secrets securely without exposing them in the configuration files.
-
 ---
 
 ## Outputs
-| Name          | Description |
-|--------------|-------------|
+
+| Name          | Description                            |
+|--------------|--------------------------------|
 | `apply_status` | The status of the Terraform Apply execution. |
 
 ---
 
-## How the Container Handles Directories
-GitHub Actions automatically mounts the repository into `/github/workspace` inside the container. Any files created there persist between different steps in the workflow.
+## Handling Terraform Directories
 
-- Inside the container, the Terraform directory is set as:
-  ```sh
-  /github/workspace/terraform
-  ```
-- The action automatically switches to this directory, so Terraform commands run in the expected location.
+GitHub Actions automatically mounts the repository into `/github/workspace` inside the container. This means Terraform runs inside:
+
+```sh
+/github/workspace/terraform
+```
+
+The action **automatically switches** to this directory, so you don’t need to configure paths manually.
 
 ---
 
-## Example: Repository Structure
-Below is a recommended structure for using this action within a repository:
+## Example Repository Structure
 
 ```
 repo-root/
@@ -125,11 +126,12 @@ repo-root/
 
 ---
 
-## Full Terraform Workflow Example
-This is a complete Terraform CI/CD pipeline using `tf-apply-gcp`:
+## Full Terraform CI/CD Workflow
+
+This workflow runs `terraform apply` automatically when changes are pushed to `main`:
 
 ```yaml
-name: Terraform CI
+name: Terraform Apply
 
 on:
   push:
@@ -153,39 +155,41 @@ jobs:
           secrets: '{"project_id":"${{ secrets.PROJECT_ID }}", "api_key":"${{ secrets.API_KEY }}"}'
 ```
 
-### What This Does
-- Automatically runs Terraform Apply when pushing to `main`.
-- Ensures the Terraform directory is set correctly.
-- Uses Google Cloud credentials for authentication.
-- Passes secrets from GitHub Workflows to be used within Terraform.
+### What This Workflow Does
+
+✔ Runs Terraform Apply on every push to `main`.  
+✔ Ensures the correct Terraform directory is used.  
+✔ Uses Google Cloud credentials from GitHub Secrets.  
+✔ Passes environment secrets securely.  
 
 ---
 
 ## Comparison vs. HashiCorp Terraform Action
-| Feature                     | `tf-apply-gcp` (This Action) | HashiCorp Action |
-|-----------------------------|----------------------|------------------|
+
+| Feature                     | `tf-apply-gcp` | HashiCorp Action |
+|-----------------------------|----------------|------------------|
 | Requires Terraform Install  | No (Containerized) | Yes |
-| Native GCP Support          | Yes | No |
+| Supports GCP Authentication | Yes | No |
 | Flexible Secret Handling    | Yes (JSON object) | No |
-| Structured Terraform Logs   | Yes | No |
-| Works on Any GitHub Runner  | Yes | No (Requires Terraform Installed) |
+| Structured Logs             | Yes (Collapsible) | No |
+| Runs on Any GitHub Runner   | Yes | No (Requires Terraform Installed) |
 
 ---
 
 ## Troubleshooting
+
 ### Terraform Apply Fails
-Check the logs for errors:
-1. Check for syntax issues in your Terraform files.
-2. Verify Google Cloud credentials are correctly set in the GOOGLE_APPLICATION_CREDENTIALS environment variable.
+Check logs for errors:
+1. Validate your Terraform files for syntax errors.
+2. Ensure Google Cloud credentials are set in the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
 
 ### Workdir Not Found
-Make sure:
-- The `workdir` input is set to the correct path inside your repository.
-- Your Terraform configuration exists in the specified directory.
+- Ensure the `workdir` input is set correctly.
+- Verify that your Terraform configuration exists in the specified directory.
 
 ### Debugging Secrets
-If Terraform is failing due to missing secrets:
-1. Check if the secret is missing in GitHub Actions.
+If Terraform fails due to missing secrets:
+1. Check if the secret exists in GitHub Secrets.
 2. Print secret values before running Terraform:
    ```yaml
    - name: Debug Secrets
