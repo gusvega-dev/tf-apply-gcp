@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process'); // Use execSync for capturing output
 
-
 /**
  * Sets up the working directory based on user input.
  */
@@ -38,7 +37,6 @@ function setupSecrets() {
         const secretsJson = JSON.stringify(secrets);
         process.env["TF_VAR_secrets"] = secretsJson;
         console.log(`✅ All secrets available as 'TF_VAR_secrets'`);
-
     } catch (error) {
         core.setFailed(`❌ Error parsing secrets input: ${error.message}`);
     }
@@ -80,7 +78,9 @@ async function runTerraform() {
     }
 
     // Check if tfplan file exists before running terraform show
-    if (!fs.existsSync("tfplan")) {
+    const planExists = fs.existsSync("tfplan");
+
+    if (!planExists) {
         core.setFailed("❌ Terraform plan file 'tfplan' was not generated. Check for Terraform errors above.");
         return;
     }
@@ -100,26 +100,23 @@ async function runTerraform() {
     // Read and parse the JSON output
     if (fs.existsSync(jsonOutputPath)) {
         const tfJson = JSON.parse(fs.readFileSync(jsonOutputPath, 'utf8'));
-    
+
         // Extract all resource changes
         const changes = tfJson.resource_changes || [];
         const changesCount = changes.length;
-    
+
         // Categorize resources by action type
         const changeCategories = {
             create: [],
             update: [],
             delete: []
         };
-    
-        // Function to format attributes with proper indentation (recursive for nested attributes)
+
         function formatAttributes(attributes, indentLevel = 2) {
             return Object.entries(attributes)
                 .map(([key, value]) => {
-                    const indent = " ".repeat(indentLevel); // Create indentation
-                    
+                    const indent = " ".repeat(indentLevel);
                     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-                        // ✅ Expand nested attributes with additional indentation
                         return `${indent}- ${key}:\n` + formatAttributes(value, indentLevel + 2);
                     } else {
                         return `${indent}- ${key}: ${JSON.stringify(value)}`;
@@ -127,82 +124,74 @@ async function runTerraform() {
                 })
                 .join("\n");
         }
-    
+
         changes.forEach(change => {
-            const address = change.address; // Full resource path
-            const actions = change.change.actions; // Array of actions (["create"], ["update"], ["delete"])
-    
-            // Extract attributes and format them properly
+            const address = change.address;
+            const actions = change.change.actions;
             const attributes = change.change.after || {};
-            const formattedAttributes = formatAttributes(attributes, 8); // Start indentation at 8 spaces
-    
+            const formattedAttributes = formatAttributes(attributes, 8);
+
             actions.forEach(action => {
                 if (changeCategories[action]) {
                     changeCategories[action].push({ address, formattedAttributes });
                 }
             });
         });
-    
-        // ✅ Now, count the number of each type **after** populating the categories
+
         const createCount = changeCategories.create.length;
         const updateCount = changeCategories.update.length;
         const deleteCount = changeCategories.delete.length;
-    
-        // Print summary
+
         console.log("🔄 Terraform Plan Changes:");
         console.log(`🔍 Found ${changesCount} resource changes.`);
-        console.log(" ");
+        console.log("");
         console.log(`CREATE: ${createCount} | UPDATE: ${updateCount} | DELETE: ${deleteCount}\n`);
-    
-        // Define display order
+
         const actionLabels = {
             create: "CREATE",
             update: "UPDATE",
             delete: "DELETE"
         };
-    
+
         ["create", "update", "delete"].forEach(action => {
             if (changeCategories[action].length > 0) {
                 console.log(`${actionLabels[action]}:`);
-    
+
                 changeCategories[action].forEach(resource => {
-                    // ✅ Resource is collapsible
                     console.log(`::group::${resource.address}`);
-                    console.log(resource.formattedAttributes); // Properly formatted key-value attributes
+                    console.log(resource.formattedAttributes);
                     console.log("::endgroup::");
                 });
-    
+
                 console.log(""); // Add empty line for spacing
             }
         });
-    
+
         // Set GitHub Actions outputs
         core.setOutput("resources_changed", changesCount);
         core.setOutput("change_details", JSON.stringify(changeCategories));
 
         console.log("📢 **The above plan will be applied now...**");
-
-        console.log("📊 Running Terraform Apply...");
-        try {
-            if (planExists) {
-                await exec.exec('terraform apply tfplan -no-color > /dev/null 2>&1', [], { silent: true });
-            } else {
-                await exec.exec('terraform apply -auto-approve -no-color > /dev/null 2>&1', [], { silent: true });
-            }
-        } catch (error) {
-            core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
-            return;
-        }
-    
-        console.log("✅ Terraform Apply completed.");
     } else {
         console.log("⚠️ No Terraform JSON output found.");
         core.setOutput("resources_changed", 0);
     }
 
-    core.setOutput("plan_status", "success");
-}
+    console.log("📊 Running Terraform Apply...");
+    try {
+        if (planExists) {
+            await exec.exec('terraform apply tfplan -no-color -auto-approve', [], { silent: false });
+        } else {
+            await exec.exec('terraform apply -auto-approve -no-color', [], { silent: false });
+        }
+    } catch (error) {
+        core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
+        return;
+    }
 
+    console.log("✅ Terraform Apply completed.");
+    core.setOutput("apply_status", "success");
+}
 
 /**
  * Main execution function.
