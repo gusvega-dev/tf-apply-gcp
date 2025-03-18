@@ -67,127 +67,11 @@ function setupGcpCredentials() {
  */
 async function runTerraform() {
     console.log("🏗 Running Terraform Init...");
-    await exec.exec('terraform init -input=false', [], { silent: false }); // Show output for debugging
+    await exec.exec('terraform init -input=false -no-color', [], { silent: false });
 
-    console.log("📊 Running Terraform Plan...");
+    console.log("📊 Running Terraform Apply");
     try {
-        await exec.exec('terraform plan -out=tfplan', [], { silent: false }); // Show output for debugging
-    } catch (error) {
-        core.setFailed(`❌ Terraform Plan failed: ${error.message}`);
-        return;
-    }
-
-    // Check if tfplan file exists before running terraform show
-    const planExists = fs.existsSync("tfplan");
-
-    if (!planExists) {
-        core.setFailed("❌ Terraform plan file 'tfplan' was not generated. Check for Terraform errors above.");
-        return;
-    }
-
-    // Initialize changesCount before JSON parsing
-    let changesCount = 0;
-
-    // Convert the Terraform plan to JSON for structured output
-    console.log("📝 Converting Terraform plan to JSON...");
-    const jsonOutputPath = "/github/workspace/tfplan.json";
-
-    try {
-        const jsonOutput = execSync('terraform show -json tfplan', { encoding: 'utf8' });
-        fs.writeFileSync(jsonOutputPath, jsonOutput);
-    } catch (error) {
-        core.setFailed(`❌ Failed to generate Terraform JSON output: ${error.message}`);
-        return;
-    }
-
-    // Read and parse the JSON output
-    if (fs.existsSync(jsonOutputPath)) {
-        const tfJson = JSON.parse(fs.readFileSync(jsonOutputPath, 'utf8'));
-
-        // Extract all resource changes
-        const changes = tfJson.resource_changes || [];
-        changesCount = changes.length; // Ensure changesCount is properly set
-
-        // Categorize resources by action type
-        const changeCategories = {
-            create: [],
-            update: [],
-            delete: []
-        };
-
-        function formatAttributes(attributes, indentLevel = 2) {
-            return Object.entries(attributes)
-                .map(([key, value]) => {
-                    const indent = " ".repeat(indentLevel);
-                    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-                        return `${indent}- ${key}:\n` + formatAttributes(value, indentLevel + 2);
-                    } else {
-                        return `${indent}- ${key}: ${JSON.stringify(value)}`;
-                    }
-                })
-                .join("\n");
-        }
-
-        changes.forEach(change => {
-            const address = change.address;
-            const actions = change.change.actions;
-            const attributes = change.change.after || {};
-            const formattedAttributes = formatAttributes(attributes, 8);
-
-            actions.forEach(action => {
-                if (changeCategories[action]) {
-                    changeCategories[action].push({ address, formattedAttributes });
-                }
-            });
-        });
-
-        const createCount = changeCategories.create.length;
-        const updateCount = changeCategories.update.length;
-        const deleteCount = changeCategories.delete.length;
-
-        console.log("🔄 Terraform Plan Changes:");
-        console.log(`🔍 Found ${changesCount} resource changes.`);
-        console.log("");
-        console.log(`CREATE: ${createCount} | UPDATE: ${updateCount} | DELETE: ${deleteCount}\n`);
-
-        const actionLabels = {
-            create: "CREATE",
-            update: "UPDATE",
-            delete: "DELETE"
-        };
-
-        ["create", "update", "delete"].forEach(action => {
-            if (changeCategories[action].length > 0) {
-                console.log(`${actionLabels[action]}:`);
-
-                changeCategories[action].forEach(resource => {
-                    console.log(`::group::${resource.address}`);
-                    console.log(resource.formattedAttributes);
-                    console.log("::endgroup::");
-                });
-
-                console.log(""); // Add empty line for spacing
-            }
-        });
-
-        // Set GitHub Actions outputs
-        core.setOutput("resources_changed", changesCount);
-        core.setOutput("change_details", JSON.stringify(changeCategories));
-
-        console.log("📢 **The above plan will be applied now...**");
-    } else {
-        console.log("⚠️ No Terraform JSON output found.");
-        core.setOutput("resources_changed", 0);
-    }
-
-    console.log("📊 Running Terraform Apply...");
-    try {
-        if (changesCount > 0) {
-            console.log("🚀 Changes detected! Running Terraform Apply...");
-            await exec.exec('terraform apply tfplan -no-color', [], { silent: false });
-        } else {
-            console.log("✅ No changes detected. Terraform Apply is **NOT skipped**, but there's nothing to apply.");
-        }
+        await exec.exec('terraform apply -auto-approve -no-color -input=false', [], { silent: false });
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
         return;
@@ -196,8 +80,6 @@ async function runTerraform() {
     console.log("✅ Terraform Apply completed.");
     core.setOutput("apply_status", "success");
 }
-
-
 
 /**
  * Main execution function.
