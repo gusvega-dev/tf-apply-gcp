@@ -98,7 +98,7 @@ async function runTerraform() {
 
     console.log("📊 Running Terraform Apply...");
     try {
-        await exec.exec('terraform apply tfplan -auto-approve', [], { silent: false }); // Apply using the saved plan
+        await exec.exec('terraform apply tfplan', [], { silent: false }); // Apply using the saved plan
     } catch (error) {
         core.setFailed(`❌ Terraform Apply failed: ${error.message}`);
         return;
