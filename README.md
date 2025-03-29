@@ -207,7 +207,8 @@ As part of a broader Terraform automation suite, additional actions will be deve
 - Security Scan
 - Cost Estimation
 - [ Plan Validation ](https://github.com/marketplace/actions/terraform-plan-gcp-action)
-- Apply Execution
+- [ Apply Execution ](https://github.com/marketplace/actions/terraform-apply-gcp-action)
+- [ Plan + Apply ](https://github.com/marketplace/actions/terraform-plan-and-apply-gcp-action)
 - State Backup
 - Post-Deployment Tests
 - Change Management Logging
