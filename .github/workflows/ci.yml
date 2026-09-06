@@ -1,0 +1,57 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - id: plan
+        uses: gusvega-dev/tf-plan-apply-gcp@780a872624353073eb115f759b0bbe9e6f6db104
+        with:
+          workdir: test/fixture
+          plan-directory: ${{ runner.temp }}/create-plan
+      - uses: ./
+        with:
+          workdir: test/fixture
+          plan-directory: ${{ runner.temp }}/create-plan
+          approved: 'true'
+          expected-manifest-sha256: ${{ steps.plan.outputs.manifest-sha256 }}
+      - id: noop
+        uses: gusvega-dev/tf-plan-apply-gcp@780a872624353073eb115f759b0bbe9e6f6db104
+        with:
+          workdir: test/fixture
+          plan-directory: ${{ runner.temp }}/noop-plan
+      - name: Assert no changes
+        env:
+          HAS_CHANGES: ${{ steps.noop.outputs.has-changes }}
+        run: test "$HAS_CHANGES" = false
+      - id: destroy
+        if: always()
+        uses: gusvega-dev/tf-plan-apply-gcp@780a872624353073eb115f759b0bbe9e6f6db104
+        with:
+          mode: destroy-plan
+          workdir: test/fixture
+          plan-directory: ${{ runner.temp }}/destroy-plan
+      - if: ${{ always() && steps.destroy.outcome == 'success' }}
+        uses: ./
+        with:
+          workdir: test/fixture
+          plan-directory: ${{ runner.temp }}/destroy-plan
+          approved: 'true'
+          expected-manifest-sha256: ${{ steps.destroy.outputs.manifest-sha256 }}
+      - if: always()
+        name: Assert empty state
+        working-directory: test/fixture
+        run: |
+          remaining="$(terraform state list)"
+          test -z "$remaining"
