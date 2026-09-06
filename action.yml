@@ -90,7 +90,7 @@ runs:
   using: composite
   steps:
     - id: engine
-      uses: gusvega-dev/tf-plan-apply-gcp@02e6a389e578611a984cebbfbe8aca3ff6d73c5c
+      uses: gusvega-dev/tf-plan-apply-gcp@780a872624353073eb115f759b0bbe9e6f6db104
       with:
         mode: apply
         workdir: ${{ inputs.workdir }}
